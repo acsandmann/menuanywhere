@@ -220,15 +220,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 		guard childrenResult == .success, let childArray = children as? [AXUIElement],
 			!childArray.isEmpty
 		else {
-			if !isSubmenu {
+			if !isSubmenu && childrenResult != .success && childrenResult != .noValue {
 				print(
-					"Could not get children for element (perhaps menu bar?). Error: \(childrenResult)"
+					"Could not get children for element \(element) (perhaps menu bar?). Error: \(childrenResult)"
 				)
 			}
 			return nil
 		}
 
 		var menuItems: [NSMenuItem] = []
+		var appleMenuItem: NSMenuItem? = nil
 		var isFirstRealItem = true
 
 		for axItem in childArray {
@@ -236,34 +237,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 				axItem.copyAttributeValue(kAXTitleAttribute, logOnError: false) ?? ""
 			let role: String? = axItem.copyAttributeValue(kAXRoleAttribute, logOnError: false)
 
-			if !isSubmenu
-				&& (title == "Apple"
-					|| axItem.copyAttributeValue(kAXRoleDescriptionAttribute, logOnError: false)
-						== "Apple menu")
-			{
-				continue
-			}
-
 			if title.isEmpty || role == kAXSeparatorRoleString {
-				if menuItems.last?.isSeparatorItem == false {
+				if !menuItems.isEmpty && menuItems.last?.isSeparatorItem == false {
 					menuItems.append(NSMenuItem.separator())
 				}
 				continue
 			}
 
+			let isAppleMenu =
+				!isSubmenu
+				&& (title == "Apple"
+					|| axItem.copyAttributeValue(kAXRoleDescriptionAttribute, logOnError: false)
+						== "Apple menu")
+
 			let menuItem = NSMenuItem(title: title, action: nil, keyEquivalent: "")
 			menuItem.target = self
 			menuItem.representedObject = axItem
-
-			if !isSubmenu && isFirstRealItem {
-				let font = NSFont.menuFont(ofSize: NSFont.systemFontSize)
-				let boldFont = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
-				let attributes: [NSAttributedString.Key: Any] = [.font: boldFont]
-				menuItem.attributedTitle = NSAttributedString(string: title, attributes: attributes)
-				isFirstRealItem = false
-			} else {
-				menuItem.title = title
-			}
 
 			let isEnabled: Bool =
 				axItem.copyAttributeValue(kAXEnabledAttribute, logOnError: true) ?? true
@@ -292,19 +281,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 					kAXMenuItemCmdModifiersAttribute, logOnError: false)
 				{
 					var flags: NSEvent.ModifierFlags = []
-
-					if axModifiers == 0 || (axModifiers & 8 != 0) { flags.insert(.command) }
 					if axModifiers & 1 != 0 { flags.insert(.shift) }
 					if axModifiers & 2 != 0 { flags.insert(.option) }
 					if axModifiers & 4 != 0 { flags.insert(.control) }
-					if !flags.isEmpty {
-						menuItem.keyEquivalentModifierMask = flags
-					} else if axModifiers == 0 && !flags.contains(.command) {
-						menuItem.keyEquivalentModifierMask = .command
-					} else if axModifiers != 0 {
-						print("Unrecognized AXModifiers \(axModifiers) for item '\(title)'")
-						menuItem.keyEquivalentModifierMask = .command
-					}
+					if axModifiers == 0 || axModifiers & 8 != 0 { flags.insert(.command) }
+					if flags.isEmpty && axModifiers >= 0 { flags.insert(.command) }
+					menuItem.keyEquivalentModifierMask = flags
 				} else {
 					menuItem.keyEquivalentModifierMask = .command
 				}
@@ -314,20 +296,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 			let subMenuResult = AXUIElementCopyAttributeValue(
 				axItem, kAXChildrenAttribute as CFString, &subMenuElement)
 
+			var hasValidSubmenu = false
 			if subMenuResult == .success,
 				let subMenuChildren = subMenuElement as? [AXUIElement],
 				!subMenuChildren.isEmpty,
 				let firstChild = subMenuChildren.first,
 				let firstChildRole: String = firstChild.copyAttributeValue(kAXRoleAttribute),
-				firstChildRole == kAXMenuRoleString,
-				let subMenuItems = buildMenuItems(from: firstChild, isSubmenu: true)
+				firstChildRole == kAXMenuRoleString
 			{
-				let submenu = NSMenu(title: title)
-				submenu.delegate = self
-				subMenuItems.forEach { submenu.addItem($0) }
-				menuItem.submenu = submenu
+				if let subMenuItems = buildMenuItems(from: firstChild, isSubmenu: true) {
+					let submenu = NSMenu(title: title)
+					submenu.delegate = self
+					subMenuItems.forEach { submenu.addItem($0) }
+					menuItem.submenu = submenu
+					hasValidSubmenu = true
+				}
+			}
 
-			} else {
+			if !hasValidSubmenu {
 				if menuItem.isEnabled {
 					menuItem.action = #selector(menuItemAction(_:))
 				} else {
@@ -336,7 +322,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 				}
 			}
 
-			menuItems.append(menuItem)
+			if (!isSubmenu && isFirstRealItem) || isAppleMenu {
+				let font = NSFont.menuFont(ofSize: NSFont.systemFontSize)
+				let boldFont = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
+				menuItem.attributedTitle = NSAttributedString(
+					string: title, attributes: [.font: boldFont])
+				if !isAppleMenu { isFirstRealItem = false }
+			}
+
+			if isAppleMenu {
+				appleMenuItem = menuItem
+			} else {
+				menuItems.append(menuItem)
+			}
+		}
+
+		if let finalAppleMenuItem = appleMenuItem {
+			if !menuItems.isEmpty && menuItems.last?.isSeparatorItem == false {
+				menuItems.append(NSMenuItem.separator())
+			}
+			menuItems.append(finalAppleMenuItem)
 		}
 
 		return menuItems.isEmpty ? nil : menuItems
