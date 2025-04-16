@@ -1,6 +1,8 @@
 # menuanywhere
 tired of clicking bad menu bar items in my sketchybar that are slow and dont line up and also didn't want to pay for menuwhere so here we are.
 
+![Demo](demo.gif)
+
 ## config
 ```cjson
 // config is located in ~/.config/menuanywhere/config.json
