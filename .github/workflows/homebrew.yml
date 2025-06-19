@@ -12,7 +12,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: acsandmann/homebrew-taps
-          token: ${{ secrets.HOMEBREW }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           path: homebrew-taps
 
       - name: Get release info
