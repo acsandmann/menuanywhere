@@ -28,16 +28,16 @@ jobs:
           echo "sha256=${SHA256}" >> $GITHUB_OUTPUT
           echo "Downloaded tarball SHA256: ${SHA256}"
 
-      - name: Checkout homebrew-taps repo
+      - name: Checkout homebrew-tap repo
         uses: actions/checkout@v4
         with:
-          repository: acsandmann/homebrew-taps
+          repository: acsandmann/homebrew-tap
           token: ${{ secrets.HOMEBREW }}
-          path: homebrew-taps
+          path: homebrew-tap
 
       - name: Generate new formula
         run: |
-          cat > homebrew-taps/Formula/menuanywhere.rb << 'EOF'
+          cat > homebrew-tap/Formula/menuanywhere.rb << 'EOF'
           class Menuanywhere < Formula
             desc "macos menu bar at your fingertips"
             homepage "https://github.com/acsandmann/menuanywhere"
@@ -63,7 +63,7 @@ jobs:
 
       - name: Show changes
         run: |
-          cd homebrew-taps
+          cd homebrew-tap
           echo "Updated formula content:"
           cat Formula/menuanywhere.rb
           echo "---"
@@ -71,7 +71,7 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          cd homebrew-taps
+          cd homebrew-tap
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
