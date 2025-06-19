@@ -15,9 +15,7 @@ jobs:
         id: release
         run: |
           VERSION="${{ github.event.release.tag_name }}"
-          VERSION_CLEAN="${VERSION#v}"
           echo "tag_name=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-          echo "version_clean=${VERSION_CLEAN}" >> $GITHUB_OUTPUT
           echo "tarball_url=${{ github.event.release.tarball_url }}" >> $GITHUB_OUTPUT
 
       - name: Download and get SHA256
@@ -35,39 +33,26 @@ jobs:
           token: ${{ secrets.HOMEBREW }}
           path: homebrew-tap
 
-      - name: Generate new formula
-        run: |
-          cat > homebrew-tap/Formula/menuanywhere.rb << 'EOF'
-          class Menuanywhere < Formula
-            desc "macos menu bar at your fingertips"
-            homepage "https://github.com/acsandmann/menuanywhere"
-            url "${{ steps.release.outputs.tarball_url }}"
-            sha256 "${{ steps.sha.outputs.sha256 }}"
-            version "${{ steps.release.outputs.tag_name }}"
-            license "MIT"
-
-            depends_on xcode: ["12.0", :build]
-            depends_on :macos
-
-            def install
-              system "swiftc", "-framework", "Cocoa", "-O", "menuanywhere.swift", "-o", "menuanywhere"
-              bin.install "menuanywhere"
-            end
-
-            test do
-              assert_predicate bin/"menuanywhere", :exist?
-              assert_predicate bin/"menuanywhere", :executable?
-            end
-          end
-          EOF
-
-      - name: Show changes
+      - name: Update formula with sed
         run: |
           cd homebrew-tap
-          echo "Updated formula content:"
+
+          echo "Before updates:"
           cat Formula/menuanywhere.rb
           echo "---"
-          git diff Formula/menuanywhere.rb || true
+
+          # Update URL - escape special characters in the URL
+          sed -i "s|url \".*\"|url \"${{ steps.release.outputs.tarball_url }}\"|g" Formula/menuanywhere.rb
+
+          # Update SHA256
+          sed -i "s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.sha256 }}\"|g" Formula/menuanywhere.rb
+
+          # Update version
+          sed -i "s|version \".*\"|version \"${{ steps.release.outputs.tag_name }}\"|g" Formula/menuanywhere.rb
+
+          echo "After updates:"
+          cat Formula/menuanywhere.rb
+          echo "---"
 
       - name: Commit and push changes
         run: |
@@ -81,9 +66,5 @@ jobs:
           fi
 
           git add Formula/menuanywhere.rb
-          git commit -m "Update menuanywhere to ${{ steps.release.outputs.tag_name }}
-
-          - Updated URL: ${{ steps.release.outputs.tarball_url }}
-          - Updated SHA256: ${{ steps.sha.outputs.sha256 }}
-          - Updated version: ${{ steps.release.outputs.tag_name }}"
+          git commit -m "Update menuanywhere to ${{ steps.release.outputs.tag_name }}"
           git push
