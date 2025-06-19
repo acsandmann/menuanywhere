@@ -1,0 +1,44 @@
+name: Update Homebrew Formula
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-homebrew:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout homebrew-taps repo
+        uses: actions/checkout@v4
+        with:
+          repository: acsandmann/homebrew-taps
+          token: ${{ secrets.HOMEBREW }}
+          path: homebrew-taps
+
+      - name: Get release info
+        id: release
+        run: |
+          echo "tag_name=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          echo "tarball_url=${{ github.event.release.tarball_url }}" >> $GITHUB_OUTPUT
+
+      - name: Download and get SHA256
+        id: sha
+        run: |
+          curl -sL "${{ steps.release.outputs.tarball_url }}" -o source.tar.gz
+          echo "sha256=$(sha256sum source.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+
+      - name: Update formula
+        run: |
+          cd homebrew-taps
+          sed -i "s|url \".*\"|url \"${{ steps.release.outputs.tarball_url }}\"|" Formula/menuanywhere.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.sha256 }}\"|" Formula/menuanywhere.rb
+          sed -i "s|version \".*\"|version \"${{ steps.release.outputs.tag_name }}\"|" Formula/menuanywhere.rb
+
+      - name: Commit and push changes
+        run: |
+          cd homebrew-taps
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add Formula/menuanywhere.rb
+          git commit -m "Update menuanywhere to ${{ steps.release.outputs.tag_name }}" || exit 0
+          git push
