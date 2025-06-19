@@ -3,6 +3,12 @@ tired of clicking bad menu bar items in my sketchybar that are slow and dont lin
 
 ![Demo](demo.gif)
 
+## installation
+```bash
+brew tap acsandmann/tap
+brew install menuanywhere
+```
+
 ## config
 ```cjson
 // config is located in ~/.config/menuanywhere/config.json

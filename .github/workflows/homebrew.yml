@@ -1,0 +1,70 @@
+name: Update Homebrew Formula
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-homebrew:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v4
+
+      - name: Get release info
+        id: release
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          echo "tag_name=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          echo "tarball_url=${{ github.event.release.tarball_url }}" >> $GITHUB_OUTPUT
+
+      - name: Download and get SHA256
+        id: sha
+        run: |
+          curl -sL "${{ steps.release.outputs.tarball_url }}" -o source.tar.gz
+          SHA256=$(sha256sum source.tar.gz | cut -d' ' -f1)
+          echo "sha256=${SHA256}" >> $GITHUB_OUTPUT
+          echo "Downloaded tarball SHA256: ${SHA256}"
+
+      - name: Checkout homebrew-tap repo
+        uses: actions/checkout@v4
+        with:
+          repository: acsandmann/homebrew-tap
+          token: ${{ secrets.HOMEBREW }}
+          path: homebrew-tap
+
+      - name: Update formula with sed
+        run: |
+          cd homebrew-tap
+
+          echo "Before updates:"
+          cat Formula/menuanywhere.rb
+          echo "---"
+
+          # Update URL - escape special characters in the URL
+          sed -i "s|url \".*\"|url \"${{ steps.release.outputs.tarball_url }}\"|g" Formula/menuanywhere.rb
+
+          # Update SHA256
+          sed -i "s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.sha256 }}\"|g" Formula/menuanywhere.rb
+
+          # Update version
+          sed -i "s|version \".*\"|version \"${{ steps.release.outputs.tag_name }}\"|g" Formula/menuanywhere.rb
+
+          echo "After updates:"
+          cat Formula/menuanywhere.rb
+          echo "---"
+
+      - name: Commit and push changes
+        run: |
+          cd homebrew-tap
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          if git diff --quiet Formula/menuanywhere.rb; then
+            echo "No changes detected in formula"
+            exit 0
+          fi
+
+          git add Formula/menuanywhere.rb
+          git commit -m "Update menuanywhere to ${{ steps.release.outputs.tag_name }}"
+          git push
