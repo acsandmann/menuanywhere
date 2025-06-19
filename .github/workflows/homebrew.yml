@@ -8,37 +8,82 @@ jobs:
   update-homebrew:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout homebrew-taps repo
+      - name: Checkout current repo
         uses: actions/checkout@v4
-        with:
-          repository: acsandmann/homebrew-taps
-          token: ${{ secrets.GITHUB_TOKEN }}
-          path: homebrew-taps
 
       - name: Get release info
         id: release
         run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION_CLEAN="${VERSION#v}"
           echo "tag_name=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          echo "version_clean=${VERSION_CLEAN}" >> $GITHUB_OUTPUT
           echo "tarball_url=${{ github.event.release.tarball_url }}" >> $GITHUB_OUTPUT
 
       - name: Download and get SHA256
         id: sha
         run: |
           curl -sL "${{ steps.release.outputs.tarball_url }}" -o source.tar.gz
-          echo "sha256=$(sha256sum source.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          SHA256=$(sha256sum source.tar.gz | cut -d' ' -f1)
+          echo "sha256=${SHA256}" >> $GITHUB_OUTPUT
+          echo "Downloaded tarball SHA256: ${SHA256}"
 
-      - name: Update formula
+      - name: Checkout homebrew-taps repo
+        uses: actions/checkout@v4
+        with:
+          repository: acsandmann/homebrew-taps
+          token: ${{ secrets.HOMEBREW }}
+          path: homebrew-taps
+
+      - name: Generate new formula
+        run: |
+          cat > homebrew-taps/Formula/menuanywhere.rb << 'EOF'
+          class Menuanywhere < Formula
+            desc "macos menu bar at your fingertips"
+            homepage "https://github.com/acsandmann/menuanywhere"
+            url "${{ steps.release.outputs.tarball_url }}"
+            sha256 "${{ steps.sha.outputs.sha256 }}"
+            version "${{ steps.release.outputs.tag_name }}"
+            license "MIT"
+
+            depends_on xcode: ["12.0", :build]
+            depends_on :macos
+
+            def install
+              system "swiftc", "-framework", "Cocoa", "-O", "menuanywhere.swift", "-o", "menuanywhere"
+              bin.install "menuanywhere"
+            end
+
+            test do
+              assert_predicate bin/"menuanywhere", :exist?
+              assert_predicate bin/"menuanywhere", :executable?
+            end
+          end
+          EOF
+
+      - name: Show changes
         run: |
           cd homebrew-taps
-          sed -i "s|url \".*\"|url \"${{ steps.release.outputs.tarball_url }}\"|" Formula/menuanywhere.rb
-          sed -i "s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.sha256 }}\"|" Formula/menuanywhere.rb
-          sed -i "s|version \".*\"|version \"${{ steps.release.outputs.tag_name }}\"|" Formula/menuanywhere.rb
+          echo "Updated formula content:"
+          cat Formula/menuanywhere.rb
+          echo "---"
+          git diff Formula/menuanywhere.rb || true
 
       - name: Commit and push changes
         run: |
           cd homebrew-taps
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+
+          if git diff --quiet Formula/menuanywhere.rb; then
+            echo "No changes detected in formula"
+            exit 0
+          fi
+
           git add Formula/menuanywhere.rb
-          git commit -m "Update menuanywhere to ${{ steps.release.outputs.tag_name }}" || exit 0
+          git commit -m "Update menuanywhere to ${{ steps.release.outputs.tag_name }}
+
+          - Updated URL: ${{ steps.release.outputs.tarball_url }}
+          - Updated SHA256: ${{ steps.sha.outputs.sha256 }}
+          - Updated version: ${{ steps.release.outputs.tag_name }}"
           git push
