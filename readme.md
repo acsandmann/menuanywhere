@@ -18,6 +18,3 @@ brew install menuanywhere
   "modifiers": ["control"]
 }
 ```
-
-
-> sorry the code isn't that clean, i wan't it one file and i am not an experienced swift user
