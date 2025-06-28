@@ -91,19 +91,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
 		let element = obj as! AXUIElement
 
-		if app.isActive {
-			AXUIElementPerformAction(element, Self.kAXPressAction)
-		} else {
+		if !app.isActive {
 			app.activate(options: [])
-			DispatchQueue.main.asyncAfter(deadline: .now() + Self.appActivationDelay) {
-				AXUIElementPerformAction(element, Self.kAXPressAction)
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+				AXUIElementPerformAction(element, "AXPress" as CFString)
 			}
+		} else {
+			AXUIElementPerformAction(element, "AXPress" as CFString)
 		}
 	}
 
 	@objc func menuDidEndTracking(_ notification: Notification) {
 		if activeMenu === notification.object as? NSMenu {
-			cleanupActiveMenu()
+			DispatchQueue.main.async { [weak self] in
+				self?.cleanupActiveMenu()
+			}
 			_ = hotKeyManager.reregister()
 		}
 	}
