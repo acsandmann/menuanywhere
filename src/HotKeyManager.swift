@@ -1,7 +1,7 @@
 import Carbon
 
 class HotKeyManager {
-	static let signature: OSType = 0x4D62_6172  // "Mbar"
+	static let signature: OSType = 0x4D62_6172 // "Mbar"
 	private static let hotKeyID = EventHotKeyID(signature: signature, id: 1)
 	private static let eventType = EventTypeSpec(
 		eventClass: OSType(kEventClassKeyboard),
@@ -23,8 +23,8 @@ class HotKeyManager {
 			return false
 		}
 
-		self.keyCode = code
-		self.modifiers = config.modifiers.compactMap { KeyMappings.modifiers[$0.lowercased()] }
+		keyCode = code
+		modifiers = config.modifiers.compactMap { KeyMappings.modifiers[$0.lowercased()] }
 			.reduce(0, |)
 
 		guard registerHotKey(), setupEventHandler() else {
