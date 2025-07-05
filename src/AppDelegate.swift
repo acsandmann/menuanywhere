@@ -1,6 +1,7 @@
 import Cocoa
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+	private var singletonLock: SingletonLock
 	private let hotKeyManager = HotKeyManager()
 	private let menuBuilder = MenuBuilder()
 	private weak var currentApp: NSRunningApplication?
@@ -9,6 +10,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 	private static let kAXMenuBarAttributeString = kAXMenuBarAttribute as CFString
 	private static let kAXPressAction = "AXPress" as CFString
 	private static let appActivationDelay: TimeInterval = 0.1
+
+	init(singletonLock: SingletonLock) {
+		self.singletonLock = singletonLock
+		super.init()
+	}
 
 	func applicationDidFinishLaunching(_: Notification) {
 		hotKeyManager.onActivated = { [weak self] in

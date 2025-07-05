@@ -5,10 +5,9 @@ class MenuBuilder {
 		NSFont.menuFont(ofSize: NSFont.systemFontSize), toHaveTrait: .boldFontMask
 	)
 
-	func buildMenu(from element: AXUIElement, target: AnyObject?, action: Selector?) -> [NSMenuItem]
-	{
+	func buildMenu(from element: AXUIElement, target: AnyObject?, action: Selector?) -> [NSMenuItem] {
 		return autoreleasepool {
-			return buildMenuItems(from: element, target: target, action: action, isSubmenu: false)
+			buildMenuItems(from: element, target: target, action: action, isSubmenu: false)
 		}
 	}
 
@@ -66,7 +65,7 @@ class MenuBuilder {
 
 					let isApple =
 						item.title == "Apple"
-						|| (itemsData[index]["AXRoleDescription"] as? String) == "Apple menu"
+							|| (itemsData[index]["AXRoleDescription"] as? String) == "Apple menu"
 
 					if isApple {
 						appleItem = item
@@ -78,7 +77,7 @@ class MenuBuilder {
 		}
 
 		if let apple = appleItem {
-			if !items.isEmpty && items.last?.isSeparatorItem == false {
+			if !items.isEmpty, items.last?.isSeparatorItem == false {
 				items.append(.separator())
 			}
 			items.append(apple)
@@ -123,7 +122,7 @@ class MenuBuilder {
 		let isApple =
 			item.title == "Apple" || (itemData["AXRoleDescription"] as? String) == "Apple menu"
 
-		if !isSubmenu && (isFirst || isApple) {
+		if !isSubmenu, isFirst || isApple {
 			item.attributedTitle = NSAttributedString(
 				string: item.title,
 				attributes: [.font: boldFont]
@@ -160,17 +159,18 @@ class MenuBuilder {
 		action: Selector?
 	) -> Bool {
 		guard let subChildren = values["AXChildren"] as? [AXUIElement],
-			!subChildren.isEmpty,
-			let firstSub = subChildren.first,
-			let subRole = firstSub.getAttribute("AXRole") as? String,
-			subRole == "AXMenu"
+		      !subChildren.isEmpty,
+		      let firstSub = subChildren.first,
+		      let subRole = firstSub.getAttribute("AXRole") as? String,
+		      subRole == "AXMenu"
 		else {
 			return false
 		}
 
 		let submenu = NSMenu(title: item.title)
 		let submenuItems = buildMenuItems(
-			from: firstSub, target: target, action: action, isSubmenu: true)
+			from: firstSub, target: target, action: action, isSubmenu: true
+		)
 		submenuItems.forEach { submenu.addItem($0) }
 		item.submenu = submenu
 		return true
@@ -190,7 +190,7 @@ extension AXUIElement {
 		return autoreleasepool {
 			var value: AnyObject?
 			guard AXUIElementCopyAttributeValue(self, "AXChildren" as CFString, &value) == .success,
-				let children = value as? [AXUIElement], !children.isEmpty
+			      let children = value as? [AXUIElement], !children.isEmpty
 			else {
 				return nil
 			}
@@ -205,13 +205,13 @@ extension AXUIElement {
 			let options = AXCopyMultipleAttributeOptions(rawValue: 0)
 
 			guard AXUIElementCopyMultipleAttributeValues(self, attrs, options, &values) == .success,
-				let results = values as? [Any], results.count == names.count
+			      let results = values as? [Any], results.count == names.count
 			else { return nil }
 
 			var dict: [String: Any] = [:]
 			dict.reserveCapacity(names.count)
 
-			for i in 0..<names.count {
+			for i in 0 ..< names.count {
 				let value = results[i]
 				if !(value is NSNull) {
 					dict[names[i]] = value

@@ -1,16 +1,28 @@
 import Cocoa
 
-AccessibilityManager.ensurePermissions()
+do {
+	let singletonLock = try SingletonLock()
 
-let delegate = AppDelegate()
-NSApplication.shared.delegate = delegate
+	AccessibilityManager.ensurePermissions()
 
-NotificationCenter.default.addObserver(
-	delegate,
-	selector: #selector(delegate.menuDidEndTracking(_:)),
-	name: NSMenu.didEndTrackingNotification,
-	object: nil
-)
+	let delegate = AppDelegate(singletonLock: singletonLock)
+	NSApplication.shared.delegate = delegate
 
-print("Starting menuanywhere...")
-let _ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)
+	NotificationCenter.default.addObserver(
+		delegate,
+		selector: #selector(delegate.menuDidEndTracking(_:)),
+		name: NSMenu.didEndTrackingNotification,
+		object: nil
+	)
+
+	print("Starting menuanywhere...")
+	_ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)
+} catch SingletonLock.Error.instanceAlreadyRunning {
+	print(
+		"menuwhere is already running. please close the existing instance before starting a new one."
+	)
+	exit(0)
+} catch {
+	print("An error occurred on startup: \(error.localizedDescription)")
+	exit(1)
+}
