@@ -19,7 +19,7 @@ do {
 	_ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)
 } catch SingletonLock.Error.instanceAlreadyRunning {
 	print(
-		"menuwhere is already running. please close the existing instance before starting a new one."
+		"menuanywhere is already running. please close the existing instance before starting a new one."
 	)
 	exit(0)
 } catch {
